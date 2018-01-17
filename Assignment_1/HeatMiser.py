@@ -1,3 +1,12 @@
+'''
+HeatMiser.py
+Emma Posega Rappleye and Ju Yun Kim
+CS 321
+Carleton College
+
+For assignment 1
+'''
+
 import random
 import statistics
 import math
