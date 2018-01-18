@@ -128,6 +128,8 @@ def main():
     for i in range(100):
         officeList = prepOffices()
 
+        avgTemp, avgHumidity, stdDevTemp, stdDevHumidity = getFloorMetrics(officeList)
+
         print("=== Run {} initial state===".format(i))
         printFloorState(officeList)
         print("\n\n")
@@ -136,6 +138,11 @@ def main():
         print("=== Run {} final state===".format(i))
         printFloorState(officeList)
         print("\n\n")
+
+        with open("b.txt", 'a') as f:
+            f.write("{}, {}, {}, {}, {}\n".format(avgTemp, avgHumidity, stdDevTemp, stdDevHumidity, runs[-1]))
+
+
 
     print("Across {} runs, HeatMiser visited {} offices on average with a standard deviation of {}.".format(len(runs), statistics.mean(runs), statistics.stdev(runs)))
 
