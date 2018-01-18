@@ -139,8 +139,9 @@ def main():
         printFloorState(officeList)
         print("\n\n")
 
-        with open("b.txt", 'a') as f:
-            f.write("{}, {}, {}, {}, {}\n".format(avgTemp, avgHumidity, stdDevTemp, stdDevHumidity, runs[-1]))
+        # if you want get initial office settings and number of rounds: 
+        # with open("b.txt", 'a') as f:
+        #     f.write("{}, {}, {}, {}, {}\n".format(avgTemp, avgHumidity, stdDevTemp, stdDevHumidity, runs[-1]))
 
 
 
