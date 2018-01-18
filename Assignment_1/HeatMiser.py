@@ -87,15 +87,16 @@ def heatMiserRun(officeList):
 
 
         avgTemp, avgHumidity, stdDevTemp, stdDevHumidity = getFloorMetrics(officeList)
-        avgTempCheck = avgTemp - 72 < 1
-        avgHumidityCheck = avgHumidity - 47 < 1
+        avgTempCheck = (avgTemp - 72 < 1) and (avgTemp - 72 >= 0)
+        avgHumidityCheck = (avgHumidity - 47 < 1) and (avgHumidity - 47 >= 0)
         stdDevTempCheck  = stdDevTemp <= 1.5
         stdDevHumidityCheck = stdDevHumidity <= 1.75
 
-        printFloorState(officeList)
+        #printFloorState(officeList)
         print('\n')
 
         if (avgTempCheck and avgHumidityCheck and stdDevTempCheck and stdDevHumidityCheck):
+            printFloorState(officeList)
             break
 
         curOffice = (curOffice + 1) % 12
