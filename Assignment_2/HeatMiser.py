@@ -16,16 +16,67 @@ import random
 import statistics
 import math
 
+### hard-coded paths for the specific simulation floor:
+OFFICE_CONF = {
+    '1': ['2', '3'],
+    '2': ['1', '4'],
+    '3': ['1', '7'],
+    '4': ['2', '5', '6', '9'],
+    '5': ['4', '8'],
+    '6': ['4', '7'],
+    '7': ['3', '6', '10'],
+    '8': ['5', '9'],
+    '9': ['4', '8', '10'],
+    '10': ['7', '9'],
+    '11': ['10', '12'],
+    '12': ['11']
+}
+
+OFFICE_WEIGHTS = {
+    ('1', '2'): 13,
+    ('1', '3'): 15,
+    ('2', '1'): 13,
+    ('2', '4'): 7,
+    ('3', '1'): 15,
+    ('3', '7'): 23,
+    ('4', '2'): 7,
+    ('4', '5'): 6,
+    ('4', '6'): 10,
+    ('4', '9'): 16,
+    ('5', '4'): 6,
+    ('5', '8'): 4,
+    ('6', '4'): 10,
+    ('6', '7'): 9,
+    ('7', '3'): 23,
+    ('7', '6'): 9,
+    ('7', '10'): 17,
+    ('8', '5'): 4,
+    ('8', '9'): 5,
+    ('9', '4'): 16,
+    ('9', '8'): 5,
+    ('9', '10'): 8,
+    ('10', '7'): 17,
+    ('10', '9'): 8,
+    ('11', '10'): 2,
+    ('11', '12'): 19,
+    ('12', '11'): 19
+}
+
+
 class Floor:
     offices = []
+    paths = {}
+    weights = {}
     def __init__(self, numOffices):
         self.numOffices = numOffices
 
-    def generateInitialState(self):
+    def generateInitialState(self, paths, weights):
         for i in range(self.numOffices):
             randomTemp = random.randint(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT)
             randomHum = random.randint(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT)
-            offices.append(Office(i, randomTemp, randomHum))
+            self.offices.append(Office(i, randomTemp, randomHum))
+        self.paths = paths
+        self.weights = weights
 
     def get(self, n):
         if n < numOffices:
@@ -59,6 +110,7 @@ class Floor:
         tempSD = statistics.stdev(temps)
         humSD = statistics.stdev(humidities)
         return (avgTemp, avgHum, tempSD, humSD)
+
 
 
 class Office:
@@ -102,66 +154,18 @@ class HeatMiser:
     def incTemp(self):
         self.floor.office
 
-def heatMiserRun(officeList):
-    '''
-    HeatMiser goes through all of the offices in order repeatedly until
-    the floor reaches the desired settings
-    '''
-    metricsTuple = getFloorMetrics(officeList)
-    curOffice = 0
-    officeVisits = 0
-    while (True):
-        officeVisits += 1
-        office = officeList[curOffice]
-        print("HeatMiser is in office {}".format(office.getNumber()))
-
-        officeTemp = office.getTemp()
-        officeHumidity = office.getHumidity()
-        print("Temperature: {}F, Humidity: {}%".format(officeTemp, officeHumidity))
-        if (abs(officeTemp - 72) >= abs(officeHumidity - 47)):
-            if (officeTemp > 72):
-                office.setTemp(officeTemp - 1)
-                print("HeatMiser lowers the temperature")
-            elif (officeTemp < 72):
-                office.setTemp(officeTemp + 1)
-                print("HeatMiser raises the temperature")
-            else:
-                print("HeatMiser does nothing")
-                pass
-        else:
-            if (officeHumidity > 47):
-                office.setHumidity(officeHumidity - 1)
-                print("HeatMiser lowers the humidity")
-            elif (office.getHumidity() < 47):
-                office.setHumidity(officeHumidity + 1)
-                print("HeatMiser raises the humidity")
-            else:
-                print("HeatMiser does nothing")
-                pass
-
-        officeTemp = office.getTemp()
-        officeHumidity = office.getHumidity()
-        print("Temperature: {}F, Humidity: {}%".format(officeTemp, officeHumidity))
-
-
-        avgTemp, avgHumidity, stdDevTemp, stdDevHumidity = getFloorMetrics(officeList)
-        avgTempCheck = (avgTemp - 72 < 1) and (avgTemp - 72 >= 0)
-        avgHumidityCheck = (avgHumidity - 47 < 1) and (avgHumidity - 47 >= 0)
-        stdDevTempCheck  = stdDevTemp <= 1.5
-        stdDevHumidityCheck = stdDevHumidity <= 1.75
-
-        #printFloorState(officeList)
-        print('\n')
-
-        if (avgTempCheck and avgHumidityCheck and stdDevTempCheck and stdDevHumidityCheck):
-            printFloorState(officeList)
-            break
-
-        curOffice = (curOffice + 1) % 12
-    return officeVisits
+    def DFSChange(self):
+        ''' use DFS to find  next office to go to '''
+        curDestination = None
+        consideredOffices = []
+        
 
 
 def main():
+    floor = Floor(12)
+    floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
+    hm = HeatMiser(floor)
+
     pass
 
 if __name__ == '__main__':
