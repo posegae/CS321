@@ -6,15 +6,17 @@ Carleton College
 
 For assignment 2
 '''
-
+TEMP_IDEAL = 72
 TEMP_LOWER_LIMIT = 65
 TEMP_UPPER_LIMIT = 75
+HUM_IDEAL = 47
 HUM_LOWER_LIMIT = 45
 HUM_UPPER_LIMIT = 55
 
 import random
 import statistics
 import math
+import copy
 
 ### hard-coded paths for the specific simulation floor:
 OFFICE_CONF = {
@@ -27,7 +29,7 @@ OFFICE_CONF = {
     '7': ['3', '6', '10'],
     '8': ['5', '9'],
     '9': ['4', '8', '10'],
-    '10': ['7', '9'],
+    '10': ['7', '9', '11'],
     '11': ['10', '12'],
     '12': ['11']
 }
@@ -57,6 +59,7 @@ OFFICE_WEIGHTS = {
     ('9', '10'): 8,
     ('10', '7'): 17,
     ('10', '9'): 8,
+    ('10', '11'): 2,
     ('11', '10'): 2,
     ('11', '12'): 19,
     ('12', '11'): 19
@@ -71,7 +74,7 @@ class Floor:
         self.numOffices = numOffices
 
     def generateInitialState(self, paths, weights):
-        for i in range(self.numOffices):
+        for i in range(1, self.numOffices + 1):
             randomTemp = random.randint(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT)
             randomHum = random.randint(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT)
             self.offices.append(Office(i, randomTemp, randomHum))
@@ -79,10 +82,10 @@ class Floor:
         self.weights = weights
 
     def get(self, n):
-        if n < numOffices:
-            return self.numOffices[n]
+        if n < self.numOffices + 1:
+            return self.offices[n - 1]
         else:
-            print("that office doesn't exist.")
+            print("office {} doesn't exist.".format(n))
             return None
 
 
@@ -110,6 +113,26 @@ class Floor:
         tempSD = statistics.stdev(temps)
         humSD = statistics.stdev(humidities)
         return (avgTemp, avgHum, tempSD, humSD)
+
+    def getDeviantOffice(self):
+        '''returns the office that needs settings modification the most. Can be
+        determined through a variety of ways, but use sum of difference from
+        the goal for now'''
+        maxTotDev = 0
+        goalOffice = None
+        for office in self.offices:
+            tempDiff = abs(TEMP_IDEAL - office.getTemp())
+            humDiff = abs(HUM_IDEAL - office.getHumidity())
+            if  tempDiff + humDiff > maxTotDev:
+                maxTotDev = tempDiff + humDiff
+                goalOffice = office
+        return goalOffice
+
+    def getNeighbors(self, office):
+        '''returns a list of neighbors that the given office has'''
+        return self.paths[str(office.getNumber())]
+
+
 
 
 
@@ -143,7 +166,7 @@ class HeatMiser:
         self.floor = floor
 
     def generateInitialState(self):
-        self.position = random.randint(0, self.floor.numOffices)
+        self.position = random.randint(1, self.floor.numOffices)
 
     def moveTo(self, n):
         if n < self.floor.numOffices and n >= 0:
@@ -154,17 +177,69 @@ class HeatMiser:
     def incTemp(self):
         self.floor.office
 
-    def DFSChange(self):
-        ''' use DFS to find  next office to go to '''
-        curDestination = None
-        consideredOffices = []
-        
+    def BFSNavigate(self):
+        '''navigates to a given goal office via breadth-first search through
+        the office layout. The goal can be assumed to be given (source from
+        Sam who asked Blake)'''
+        goal = self.floor.getDeviantOffice()
+        if self.position == goal.getNumber():
+            return [self.floor.get(self.position)]
+
+        # this is the list of paths that we're working on now
+        paths = [[self.floor.get(self.position)]]
+        done = 0
+        correctPath = None
+        while not done:
+            temps = []
+            for path in paths:
+                # crude infinite loop checking: no path should be longer than
+                #  the number of nodes
+                if len(path) > 12:
+                    # toRemove.append(path)
+                    continue
+                lastOffice = path[-1]
+                neighbors = self.floor.getNeighbors(lastOffice)
+                temp = []
+                for neighbor in neighbors:
+                    # branching a path
+                    pathcopy = copy.deepcopy(path)
+                    pathcopy.append(self.floor.get(int(neighbor)))
+                    temp.append(pathcopy)
+                temps.extend(temp)
+            paths = temps
+            for path in paths:
+                if path[-1].getNumber() == goal.getNumber():
+                    done = True
+                    correctPath = path
+            if paths == []:
+                break
+        return correctPath
+
+
+def accumulatePathValues(path):
+    '''add up the edge values between offices'''
+    val = 0
+    for i in range(len(path) - 1):
+        val += OFFICE_WEIGHTS[str(path[i].getNumber()), str(path[i+1].getNumber())]
+    return val
 
 
 def main():
-    floor = Floor(12)
-    floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
-    hm = HeatMiser(floor)
+    values = []
+    num_visits = []
+    for i in range(1000):
+        floor = Floor(12)
+        floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
+        hm = HeatMiser(floor)
+        hm.generateInitialState()
+        path = hm.BFSNavigate()
+        value = accumulatePathValues(path)
+        num_visit = len(path)
+        values.append(value)
+        num_visits.append(num_visit)
+    print(statistics.mean(values))
+    print(statistics.mean(num_visits))
+
 
     pass
 
