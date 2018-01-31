@@ -7,9 +7,11 @@ Carleton College
 For assignment 2
 '''
 TEMP_IDEAL = 72
+TEMP_IDEAL_SD = 1.5
 TEMP_LOWER_LIMIT = 65
 TEMP_UPPER_LIMIT = 75
 HUM_IDEAL = 47
+HUM_IDEAL_SD = 1.75
 HUM_LOWER_LIMIT = 45
 HUM_UPPER_LIMIT = 55
 
@@ -109,9 +111,9 @@ class Floor:
         temps = [office.getTemp() for office in self.offices]
         hums = [office.getHumidity() for office in self.offices]
         avgTemp = statistics.mean(temps)
-        avgHum = statistics.mean(humidities)
+        avgHum = statistics.mean(hums)
         tempSD = statistics.stdev(temps)
-        humSD = statistics.stdev(humidities)
+        humSD = statistics.stdev(hums)
         return (avgTemp, avgHum, tempSD, humSD)
 
     def getDeviantOffice(self):
@@ -213,7 +215,117 @@ class HeatMiser:
                     correctPath = path
             if paths == []:
                 break
+
+        self.position = correctPath[-1].getNumber()
+        self.alterOfficeSettings(correctPath[-1])
         return correctPath
+
+    def evalCandidateChanges(self, candidates, metric, measure, office):
+        '''returns the 'goodness' of changing the value to the candidates.
+        Returns a list of 'goodnesses' for each candidate'''
+        officeIdx = self.floor.offices.index(office)
+        if metric == 'temp':
+            curState = [office.getTemp() for office in self.floor.offices]
+            goalAvg = TEMP_IDEAL
+            goalSD = TEMP_IDEAL_SD
+        elif metric == 'hum':
+            curState = [office.getHumidity() for office in self.floor.offices]
+            goalAvg = HUM_IDEAL
+            goalSD = HUM_IDEAL_SD
+        else:
+            print('evalCandidateChanges: enter a valid metric to evaluate (temp, hum)')
+        goodnesses = []
+        for c in candidates:
+            cState = copy.deepcopy(curState)
+            curState[officeIdx] = c
+            cAvg = statistics.mean(curState)
+            cSD = statistics.stdev(curState)
+            # currently, goodness measured by sum of percent difference bw real and ideal metrics
+            # goodness = (abs(goalAvg - cAvg) / goalAvg) + (abs(goalSD - cSD) / goalSD)
+            if measure == 'avg':
+                goodness = (abs(goalAvg - cAvg) / goalAvg)
+            elif measure == 'sd':
+                goodness = (abs(goalSD - cSD) / goalSD)
+            goodnesses.append(goodness)
+        return goodnesses
+
+
+    def alterOfficeSettings(self, office):
+        '''alters the office settings within bounds so that the floor metrics
+        are closer to the ideal settings'''
+        possibleNewTemps = [temp for temp in range(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT + 1)]
+
+        avgTemp, avgHum, tempSD, humSD = self.floor.getAllMetrics()
+        avgTempCond = TEMP_IDEAL - avgTemp < 1 and TEMP_IDEAL - avgTemp >= 0
+        avgHumCond = HUM_IDEAL - avgHum < 1 and HUM_IDEAL - avgHum >= 0
+        SDTempCond = tempSD <= TEMP_IDEAL_SD
+        SDHumCond = humSD <= HUM_IDEAL_SD
+
+        if not avgTempCond:
+            tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'avg', office)
+            bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+            office.setTemp(bestNewTemp)
+        if not SDTempCond:
+            tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'sd', office)
+            bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+            office.setTemp(bestNewTemp)
+
+
+
+        possibleNewHums = [hum for hum in range(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT + 1)]
+        if not avgHumCond:
+            humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'avg', office)
+            bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
+            office.setHumidity(bestNewHum)
+        if not SDHumCond:
+            humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'sd', office)
+            bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
+            office.setHumidity(bestNewHum)
+
+
+        print(bestNewTemp, bestNewHum)
+
+
+
+
+def DFSTrial():
+    ''' One run from start to finish where HeatMiser optimizes a floor from
+    start to finish '''
+    # initialize variables
+    floor = Floor(12)
+    floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
+    hm = HeatMiser(floor)
+    hm.generateInitialState()
+
+    avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
+    done = False
+    totalEdgeSums = []
+    totalNumVisits = []
+    while not done:
+        # get to the worst-offender office
+        path = hm.BFSNavigate()
+
+        # for analytics
+        edgeSum = accumulatePathValues(path)
+        numVisits = len(path)
+
+        totalEdgeSums.append(edgeSum)
+        totalNumVisits.append(numVisits)
+
+        print('{}/{}, {}/{}, {}/{}, {},{}'.format(avgTemp, TEMP_IDEAL,
+                                                  avgHum, HUM_IDEAL,
+                                                  tempSD, TEMP_IDEAL_SD,
+                                                  humSD, HUM_IDEAL_SD))
+
+        # checking for goal conditions
+        avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
+        avgTempCond = TEMP_IDEAL - avgTemp < 1 and TEMP_IDEAL - avgTemp >= 0
+        avgHumCond = HUM_IDEAL - avgHum < 1 and HUM_IDEAL - avgHum >= 0
+        SDTempCond = tempSD <= TEMP_IDEAL_SD
+        SDHumCond = humSD <= HUM_IDEAL_SD
+        if avgTempCond and avgHumCond and SDTempCond and SDHumCond:
+            done = true
+
 
 
 def accumulatePathValues(path):
@@ -225,20 +337,7 @@ def accumulatePathValues(path):
 
 
 def main():
-    values = []
-    num_visits = []
-    for i in range(1000):
-        floor = Floor(12)
-        floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
-        hm = HeatMiser(floor)
-        hm.generateInitialState()
-        path = hm.BFSNavigate()
-        value = accumulatePathValues(path)
-        num_visit = len(path)
-        values.append(value)
-        num_visits.append(num_visit)
-    print(statistics.mean(values))
-    print(statistics.mean(num_visits))
+    DFSTrial()
 
 
     pass
