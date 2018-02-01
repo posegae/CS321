@@ -68,6 +68,142 @@ OFFICE_WEIGHTS = {
 }
 
 
+HEURISTIC = {
+    ('1','2')	:13,
+    ('1','3')	:15,
+    ('1','4')	:19,
+    ('1','5')	:25,
+    ('1','6')	:20,
+    ('1','7')	:35,
+    ('1','8')	:32,
+    ('1','9')	:34,
+    ('1','10')	:37,
+    ('1','11')	:42,
+    ('1','12')	:40,
+    ('2','1')	:13,
+    ('2','3')	:11,
+    ('2','4')	:7,
+    ('2','5')	:10,
+    ('2','6')	:8,
+    ('2','7')	:21,
+    ('2','8')	:19,
+    ('2','9')	:18,
+    ('2','10')	:24,
+    ('2','11')	:26,
+    ('2','12')	:25,
+    ('3','1')	:15,
+    ('3','2')	:11,
+    ('3','4')	:12,
+    ('3','5')	:11,
+    ('3','6')	:7,
+    ('3','7')	:23,
+    ('3','8')	:22,
+    ('3','9')	:31,
+    ('3','10')	:30,
+    ('3','11')	:34,
+    ('3','12')	:33,
+    ('4','1')	:19,
+    ('4','2')	:7,
+    ('4','3')	:12,
+    ('4','5')	:6,
+    ('4','6')	:10,
+    ('4','7')	:20,
+    ('4','8')	:18,
+    ('4','9')	:16,
+    ('4','10')	:22,
+    ('4','11')	:26,
+    ('4','12')	:24,
+    ('5','1')	:25,
+    ('5','2')	:10,
+    ('5','3')	:11,
+    ('5','4')	:6,
+    ('5','6')	:4,
+    ('5','7')	:10,
+    ('5','8')	:4,
+    ('5','9')	:12,
+    ('5','10')	:8,
+    ('5','11')	:13,
+    ('5','12')	:12,
+    ('6','1')	:20,
+    ('6','2')	:8,
+    ('6','3')	:7,
+    ('6','4')	:10,
+    ('6','5')	:4,
+    ('6','7')	:9,
+    ('6','8')	:7,
+    ('6','9')	:11,
+    ('6','10')	:9,
+    ('6','11')	:15,
+    ('6','12')	:13,
+    ('7','1')	:35,
+    ('7','2')	:21,
+    ('7','3')	:23,
+    ('7','4')	:20,
+    ('7','5')	:10,
+    ('7','6')	:9,
+    ('7','8')	:4,
+    ('7','9')	:12,
+    ('7','10')	:17,
+    ('7','11')	:21,
+    ('7','12')	:3,
+    ('8','1')	:32,
+    ('8','2')	:19,
+    ('8','3')	:22,
+    ('8','4')	:18,
+    ('8','5')	:4,
+    ('8','6')	:7,
+    ('8','7')	:4,
+    ('8','9')	:5,
+    ('8','10')	:2,
+    ('8','11')	:7,
+    ('8','12')	:5,
+    ('9','1')	:34,
+    ('9','2')	:18,
+    ('9','3')	:31,
+    ('9','4')	:16,
+    ('9','5')	:12,
+    ('9','6')	:11,
+    ('9','7')	:12,
+    ('9','8')	:5,
+    ('9','10')	:8,
+    ('9','11')	:15,
+    ('9','12')	:22,
+    ('10','1')	:37,
+    ('10','2')	:24,
+    ('10','3')	:30,
+    ('10','4')	:22,
+    ('10','5')	:18,
+    ('10','6')	:9,
+    ('10','7')	:17,
+    ('10','8')	:2,
+    ('10','9')	:8,
+    ('10','11')	:2,
+    ('10','12')	:4,
+    ('11','1')	:42,
+    ('11','2')	:26,
+    ('11','3')	:34,
+    ('11','4')	:26,
+    ('11','5')	:13,
+    ('11','6')	:15,
+    ('11','7')	:21,
+    ('11','8')	:7,
+    ('11','9')	:15,
+    ('11','10')	:2,
+    ('11','12')	:19,
+    ('12','1')	:40,
+    ('12','2')	:25,
+    ('12','3')	:33,
+    ('12','4')	:24,
+    ('12','5')	:12,
+    ('12','6')	:13,
+    ('12','7')	:3,
+    ('12','8')	:5,
+    ('12','9')	:22,
+    ('12','10')	:4,
+    ('12','11')	:19
+}
+
+
 class Floor:
     offices = []
     paths = {}
@@ -185,6 +321,61 @@ class HeatMiser:
 
     def incTemp(self):
         self.floor.office
+
+    def aStarNavigate(self):
+        ''' navigates to a given goal office via A* search through the office
+        layout. The goal can be assumed to be given
+        '''
+        correctPath = None
+        goal = self.floor.getDeviantOffice()
+        if self.position == goal.getNumber():
+            correctPath = [self.floor.get(self.position)]
+            self.position = correctPath[-1].getNumber()
+            self.alterOfficeSettings(correctPath[-1])
+            return correctPath
+
+        curOffice = self.floor.get(self.position)
+        heuristic = self.getHeuristicWithOfficeNums(curOffice.getNumber(), goal.getNumber())
+        cost = 0
+        paths = [ ([curOffice], heuristic, cost) ]
+        while curOffice != goal:
+            # print('while loop in a*')
+            # find the path with the best g(n) + h(n) (distance + heuristic)
+            fn = [path[1] + path[2] for path in paths]
+            bestFnIdx = fn.index(min(fn))
+            pathToExpand = paths[bestFnIdx][0]
+
+
+            # look at end node to expand it
+            nodeToExpand = pathToExpand[-1]
+
+            self.position = nodeToExpand.getNumber()
+            print(goal.getNumber())
+            print(self.position)
+            curOffice = nodeToExpand
+
+
+            # expand the node, get its neighbors and add it to a
+            # temporary path storage
+            neighbors = self.floor.getNeighbors(nodeToExpand)
+            for neighbor in neighbors:
+                # branching a path
+                pathcopy = copy.deepcopy(pathToExpand)
+                neighborint = int(neighbor)
+                pathcopy.append(self.floor.get(neighborint))
+                neighborHeuristic = self.getHeuristicWithOfficeNums(neighborint, goal.getNumber())
+                pathCost = accumulatePathValues(pathcopy)
+                paths.append( (pathcopy, neighborHeuristic, pathCost) )
+
+
+
+
+
+    def getHeuristicWithOfficeNums(self, initialPos, finalPos):
+        if initialPos == finalPos:
+            return 0
+        return HEURISTIC[(str(initialPos),
+                  str(finalPos))]
 
     def BFSNavigate(self):
         '''navigates to a given goal office via breadth-first search through
@@ -399,8 +590,51 @@ def BFSTrial():
     # print(statistics.mean(totalNumVisits))
     # print(sum(totalEdgeSums))
     # print(sum(totalNumVisits))
-    return totalEdgeSums, totalNumVisits
+    return sum(totalEdgeSums),  sum(totalNumVisits)
 
+
+def aStarTrial():
+    ''' One run from start to finish where HeatMiser optimizes a floor from
+    start to finish '''
+    # initialize variables
+    floor = Floor(12)
+    floor.genFloorState(OFFICE_CONF, OFFICE_WEIGHTS)
+    hm = HeatMiser(floor)
+    hm.generateInitialState()
+
+    avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
+    done = False
+    totalEdgeSums = []
+    totalNumVisits = []
+    i = 0
+    while not done:
+        # get to the worst-offender office
+        path = hm.aStarNavigate()
+
+        edgeSum = accumulatePathValues(path)
+        numVisits = len(path)
+
+        totalEdgeSums.append(edgeSum)
+        totalNumVisits.append(numVisits)
+
+        print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
+                                                  avgHum, HUM_IDEAL,
+                                                  tempSD, TEMP_IDEAL_SD,
+                                                  humSD, HUM_IDEAL_SD))
+
+        # checking for goal conditions
+        avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
+        avgTempCond = TEMP_IDEAL - avgTemp < 1 and TEMP_IDEAL - avgTemp >= 0
+        avgHumCond = HUM_IDEAL - avgHum < 1 and HUM_IDEAL - avgHum >= 0
+        SDTempCond = tempSD <= TEMP_IDEAL_SD
+        SDHumCond = humSD <= HUM_IDEAL_SD
+        if avgTempCond and avgHumCond and SDTempCond and SDHumCond:
+            done = True
+    # print(statistics.mean(totalEdgeSums))
+    # print(statistics.mean(totalNumVisits))
+    # print(sum(totalEdgeSums))
+    # print(sum(totalNumVisits))
+    return sum(totalEdgeSums),  sum(totalNumVisits)
 
 
 def accumulatePathValues(path):
@@ -416,11 +650,14 @@ def main():
     avgNumVisits = []
     for i in range(100):
         # print(i)
-        es, nv = BFSTrial()
+        # es, nv = BFSTrial()
+        es, nv = aStarTrial()
         avgEdgeSums.append(es)
         avgNumVisits.append(nv)
-    print(statistics.mean(avgEdgeSums))
-    print(statistics.mean(avgNumVisits))
+        # print(avgEdgeSums)
+        # print(avgNumVisits)
+        print(statistics.mean(avgEdgeSums))
+        print(statistics.mean(avgNumVisits))
 
 
     pass
