@@ -272,8 +272,8 @@ class Floor:
                 goalOffice = office
         # print(goalOffice.getTemp())
         # print(goalOffice.getHumidity())
-        print('totDiff: {}'.format(totDiff))
-        print('getDeviantOffice is returning office: {}'.format(office.getNumber()))
+        # print('totDiff: {}'.format(totDiff))
+        # print('getDeviantOffice is returning office: {}'.format(office.getNumber()))
         return goalOffice
 
     def getNeighbors(self, office):
@@ -337,23 +337,38 @@ class HeatMiser:
         curOffice = self.floor.get(self.position)
         heuristic = self.getHeuristicWithOfficeNums(curOffice.getNumber(), goal.getNumber())
         cost = 0
-        paths = [ ([curOffice], heuristic, cost) ]
+        expanded = False
+        paths = [ [[curOffice], heuristic, cost, expanded] ]
         while curOffice != goal:
             # print('while loop in a*')
             # find the path with the best g(n) + h(n) (distance + heuristic)
-            fn = [path[1] + path[2] for path in paths]
+            # fn = []
+            expandablePaths = [path for path in paths if not path[3]]
+            fn = [path[1] + path[2] for path in expandablePaths]
             bestFnIdx = fn.index(min(fn))
-            pathToExpand = paths[bestFnIdx][0]
-
+            # for path in paths:
+            #     print("Path:")
+            #     for office in path[0]:
+            #         print(office.getNumber())
+            # print("Best fn and fnIndex: {}, {}".format(min(fn), bestFnIdx))
+            pathToExpand = expandablePaths[bestFnIdx][0]
 
             # look at end node to expand it
             nodeToExpand = pathToExpand[-1]
 
+            # print("In {}".format(self.position))
             self.position = nodeToExpand.getNumber()
-            print(goal.getNumber())
-            print(self.position)
+            # print("Goal: {}".format(goal.getNumber()))
+            # print("Expanding node: {}".format(self.position))
+            # print("Has it been expanded?: {}".format(expandablePaths[bestFnIdx][3]))
             curOffice = nodeToExpand
 
+            oldPath = [path for path in paths if path[0] == pathToExpand]
+            oldPathIdx = paths.index(oldPath[0])
+            paths[oldPathIdx][3] = True
+
+            # still needed?
+            # expandablePaths[bestFnIdx][3] = True
 
             # expand the node, get its neighbors and add it to a
             # temporary path storage
@@ -363,12 +378,16 @@ class HeatMiser:
                 pathcopy = copy.deepcopy(pathToExpand)
                 neighborint = int(neighbor)
                 pathcopy.append(self.floor.get(neighborint))
+
+                # goal test upon node "generation"
+                if (neighborint == goal.getNumber()):
+                    # you've travelled to the goal! Return with the correct path
+                    self.position = pathcopy[-1].getNumber()
+                    self.alterOfficeSettings(pathcopy[-1])
+                    return pathcopy
                 neighborHeuristic = self.getHeuristicWithOfficeNums(neighborint, goal.getNumber())
                 pathCost = accumulatePathValues(pathcopy)
-                paths.append( (pathcopy, neighborHeuristic, pathCost) )
-
-
-
+                paths.append( [pathcopy, neighborHeuristic, pathCost, False] )
 
 
     def getHeuristicWithOfficeNums(self, initialPos, finalPos):
@@ -390,13 +409,13 @@ class HeatMiser:
             # print('{}'.format(correctPath[-1].getTemp()))
 
             self.position = correctPath[-1].getNumber()
-            print([n.getNumber() for n in self.floor.offices])
-            print([n.getNumber() for n in correctPath])
+            # print([n.getNumber() for n in self.floor.offices])
+            # print([n.getNumber() for n in correctPath])
             # print('HeatMiser is in office: {}'.format(correctPath[-1].getNumber()))
 
-            print('before: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
+            # print('before: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
             self.alterOfficeSettings(correctPath[-1])
-            print('after: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
+            # print('after: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
 
             return correctPath
 
@@ -469,7 +488,7 @@ class HeatMiser:
         are closer to the ideal settings'''
 
         ### baseline: change to the desired settings
-        print('changing office setting')
+        # print('changing office setting')
         office.setTemp(TEMP_IDEAL)
         office.setHumidity(HUM_IDEAL)
 
@@ -544,8 +563,8 @@ def BFSTrial():
     # initialize variables
     floor = Floor(12)
     floor.genFloorState(OFFICE_CONF, OFFICE_WEIGHTS)
-    print('initial floor state')
-    print([n.getNumber() for n in floor.offices])
+    # print('initial floor state')
+    # print([n.getNumber() for n in floor.offices])
     hm = HeatMiser(floor)
     hm.generateInitialState()
 
@@ -555,14 +574,14 @@ def BFSTrial():
     totalNumVisits = []
     i = 0
     while not done:
-        print('{}'.format(hm.position))
+        # print('{}'.format(hm.position))
         # get to the worst-offender office
-        print('\n\nabout to call BFS Navigate')
-        print([n.getNumber() for n in floor.offices])
-        print('called BFS Navigate')
+        # print('\n\nabout to call BFS Navigate')
+        # print([n.getNumber() for n in floor.offices])
+        # print('called BFS Navigate')
         path = hm.BFSNavigate()
-        print('post-BFS Navigate')
-        print([n.getNumber() for n in floor.offices])
+        # print('post-BFS Navigate')
+        # print([n.getNumber() for n in floor.offices])
         #if (i == 11):
         #    return
         #i += 1
@@ -573,10 +592,10 @@ def BFSTrial():
         totalEdgeSums.append(edgeSum)
         totalNumVisits.append(numVisits)
 
-        print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
-                                                  avgHum, HUM_IDEAL,
-                                                  tempSD, TEMP_IDEAL_SD,
-                                                  humSD, HUM_IDEAL_SD))
+        # print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
+                                                  # avgHum, HUM_IDEAL,
+                                                  # tempSD, TEMP_IDEAL_SD,
+                                                  # humSD, HUM_IDEAL_SD))
 
         # checking for goal conditions
         avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
@@ -617,10 +636,10 @@ def aStarTrial():
         totalEdgeSums.append(edgeSum)
         totalNumVisits.append(numVisits)
 
-        print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
-                                                  avgHum, HUM_IDEAL,
-                                                  tempSD, TEMP_IDEAL_SD,
-                                                  humSD, HUM_IDEAL_SD))
+        # print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
+                                                  # avgHum, HUM_IDEAL,
+                                                  # tempSD, TEMP_IDEAL_SD,
+                                                  # humSD, HUM_IDEAL_SD))
 
         # checking for goal conditions
         avgTemp, avgHum, tempSD, humSD = hm.floor.getAllMetrics()
@@ -650,14 +669,25 @@ def main():
     avgNumVisits = []
     for i in range(100):
         # print(i)
+        es, nv = BFSTrial()
+        avgEdgeSums.append(es)
+        avgNumVisits.append(nv)
+        # print(avgEdgeSums)
+        # print(avgNumVisits)
+    print(statistics.mean(avgEdgeSums))
+    print(statistics.mean(avgNumVisits))
+    avgEdgeSums = []
+    avgNumVisits = []
+    for i in range(100):
+        # print(i)
         # es, nv = BFSTrial()
         es, nv = aStarTrial()
         avgEdgeSums.append(es)
         avgNumVisits.append(nv)
         # print(avgEdgeSums)
         # print(avgNumVisits)
-        print(statistics.mean(avgEdgeSums))
-        print(statistics.mean(avgNumVisits))
+    print(statistics.mean(avgEdgeSums))
+    print(statistics.mean(avgNumVisits))
 
 
     pass
