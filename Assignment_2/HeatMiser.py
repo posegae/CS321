@@ -75,7 +75,8 @@ class Floor:
     def __init__(self, numOffices):
         self.numOffices = numOffices
 
-    def generateInitialState(self, paths, weights):
+    def genFloorState(self, paths, weights):
+        self.offices = []
         for i in range(1, self.numOffices + 1):
             randomTemp = random.randint(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT)
             randomHum = random.randint(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT)
@@ -123,19 +124,25 @@ class Floor:
         maxTotDev = 0
         goalOffice = None
         for office in self.offices:
+
+
             tempDiff = abs(TEMP_IDEAL - office.getTemp())
             humDiff = abs(HUM_IDEAL - office.getHumidity())
-            if  tempDiff + humDiff > maxTotDev:
-                maxTotDev = tempDiff + humDiff
+            # totDiff = math.sqrt(tempDiff**2 + humDiff**2)
+            # totDiff = tempDiff + humDiff
+            totDiff = max(tempDiff, humDiff)
+            if  totDiff > maxTotDev:
+                maxTotDev = totDiff
                 goalOffice = office
+        # print(goalOffice.getTemp())
+        # print(goalOffice.getHumidity())
+        print('totDiff: {}'.format(totDiff))
+        print('getDeviantOffice is returning office: {}'.format(office.getNumber()))
         return goalOffice
 
     def getNeighbors(self, office):
         '''returns a list of neighbors that the given office has'''
         return self.paths[str(office.getNumber())]
-
-
-
 
 
 class Office:
@@ -183,15 +190,30 @@ class HeatMiser:
         '''navigates to a given goal office via breadth-first search through
         the office layout. The goal can be assumed to be given (source from
         Sam who asked Blake)'''
+        correctPath = None
         goal = self.floor.getDeviantOffice()
         if self.position == goal.getNumber():
-            return [self.floor.get(self.position)]
+            # print(type(self.position))
+            # print(self.position)
+            correctPath = [self.floor.get(self.position)]
+            # print('{}'.format(correctPath[-1].getTemp()))
+
+            self.position = correctPath[-1].getNumber()
+            print([n.getNumber() for n in self.floor.offices])
+            print([n.getNumber() for n in correctPath])
+            # print('HeatMiser is in office: {}'.format(correctPath[-1].getNumber()))
+
+            print('before: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
+            self.alterOfficeSettings(correctPath[-1])
+            print('after: correctPath[-1] stats: {}, {}'.format(correctPath[-1].getTemp(), correctPath[-1].getHumidity()))
+
+            return correctPath
 
         # this is the list of paths that we're working on now
         paths = [[self.floor.get(self.position)]]
         done = 0
-        correctPath = None
         while not done:
+            # print('number of paths: {}'.format(len(paths)))
             temps = []
             for path in paths:
                 # crude infinite loop checking: no path should be longer than
@@ -215,12 +237,13 @@ class HeatMiser:
                     correctPath = path
             if paths == []:
                 break
+        # print(correctPath[-1].getNumber())
 
         self.position = correctPath[-1].getNumber()
         self.alterOfficeSettings(correctPath[-1])
         return correctPath
 
-    def evalCandidateChanges(self, candidates, metric, measure, office):
+    def evalCandidateChanges(self, candidates, metric, office):
         '''returns the 'goodness' of changing the value to the candidates.
         Returns a list of 'goodnesses' for each candidate'''
         officeIdx = self.floor.offices.index(office)
@@ -241,11 +264,11 @@ class HeatMiser:
             cAvg = statistics.mean(curState)
             cSD = statistics.stdev(curState)
             # currently, goodness measured by sum of percent difference bw real and ideal metrics
-            # goodness = (abs(goalAvg - cAvg) / goalAvg) + (abs(goalSD - cSD) / goalSD)
-            if measure == 'avg':
-                goodness = (abs(goalAvg - cAvg) / goalAvg)
-            elif measure == 'sd':
-                goodness = (abs(goalSD - cSD) / goalSD)
+            goodness = max([abs(goalAvg - cAvg), abs(goalSD - cSD)])
+            # if measure == 'avg':
+            #     goodness = (abs(goalAvg - cAvg) / goalAvg)
+            # elif measure == 'sd':
+            #     goodness = (abs(goalSD - cSD) / goalSD)
             goodnesses.append(goodness)
         return goodnesses
 
@@ -253,47 +276,85 @@ class HeatMiser:
     def alterOfficeSettings(self, office):
         '''alters the office settings within bounds so that the floor metrics
         are closer to the ideal settings'''
-        possibleNewTemps = [temp for temp in range(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT + 1)]
 
-        avgTemp, avgHum, tempSD, humSD = self.floor.getAllMetrics()
-        avgTempCond = TEMP_IDEAL - avgTemp < 1 and TEMP_IDEAL - avgTemp >= 0
-        avgHumCond = HUM_IDEAL - avgHum < 1 and HUM_IDEAL - avgHum >= 0
-        SDTempCond = tempSD <= TEMP_IDEAL_SD
-        SDHumCond = humSD <= HUM_IDEAL_SD
-
-        if not avgTempCond:
-            tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'avg', office)
-            bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
-            office.setTemp(bestNewTemp)
-        if not SDTempCond:
-            tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'sd', office)
-            bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
-            office.setTemp(bestNewTemp)
+        ### baseline: change to the desired settings
+        print('changing office setting')
+        office.setTemp(TEMP_IDEAL)
+        office.setHumidity(HUM_IDEAL)
 
 
+        # avgTemp, avgHum, tempSD, humSD = self.floor.getAllMetrics()
+        # avgTempCond = TEMP_IDEAL - avgTemp < 1 and TEMP_IDEAL - avgTemp >= 0
+        # avgHumCond = HUM_IDEAL - avgHum < 1 and HUM_IDEAL - avgHum >= 0
+        # SDTempCond = tempSD <= TEMP_IDEAL_SD
+        # SDHumCond = humSD <= HUM_IDEAL_SD
+        #
+        #
+        # possibleNewTemps = [temp for temp in range(TEMP_LOWER_LIMIT, TEMP_UPPER_LIMIT + 1)]
+        #
+        # tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', office)
+        # bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+        #
+        # if not avgTempCond or not SDTempCond:
+        #     # if the conditions aren't met, and HeatMiser doesn't want to change,
+        #     #  pick the second best
+        #     if bestNewTemp == office.getTemp():
+        #         print('second best temp is being chosen')
+        #         possibleNewTemps[tempCandEval.index(min(tempCandEval))] = 999999
+        #         bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+        #
+        #
+        # office.setTemp(bestNewTemp)
+        #
+        #
+        # possibleNewHums = [hum for hum in range(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT + 1)]
+        #
+        # humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', office)
+        # bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
+        # office.setHumidity(bestNewHum)
+        #
+        # if not avgHumCond or not SDHumCond:
+        #     # same deal with humidity
+        #     if bestNewHum == office.getHumidity():
+        #         print('second best humidity is being chosen')
+        #         possibleNewHums[humCandEval.index(min(humCandEval))] = 999999
+        #         bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
 
-        possibleNewHums = [hum for hum in range(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT + 1)]
-        if not avgHumCond:
-            humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'avg', office)
-            bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
-            office.setHumidity(bestNewHum)
-        if not SDHumCond:
-            humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'sd', office)
-            bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
-            office.setHumidity(bestNewHum)
+        # if not avgTempCond:
+        #     tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'avg', office)
+        #     bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+        #     office.setTemp(bestNewTemp)
+        # if not SDTempCond:
+        #     tempCandEval = self.evalCandidateChanges(possibleNewTemps, 'temp', 'sd', office)
+        #     bestNewTemp = possibleNewTemps[tempCandEval.index(min(tempCandEval))]
+        #     office.setTemp(bestNewTemp)
+        #
+        #
+        #
+        # possibleNewHums = [hum for hum in range(HUM_LOWER_LIMIT, HUM_UPPER_LIMIT + 1)]
+        # if not avgHumCond:
+        #     humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'avg', office)
+        #     bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
+        #     office.setHumidity(bestNewHum)
+        # if not SDHumCond:
+        #     humCandEval = self.evalCandidateChanges(possibleNewHums, 'hum', 'sd', office)
+        #     bestNewHum = possibleNewHums[humCandEval.index(min(humCandEval))]
+        #     office.setHumidity(bestNewHum)
 
 
-        print(bestNewTemp, bestNewHum)
+        # print(bestNewTemp, bestNewHum)
 
 
 
 
-def DFSTrial():
+def BFSTrial():
     ''' One run from start to finish where HeatMiser optimizes a floor from
     start to finish '''
     # initialize variables
     floor = Floor(12)
-    floor.generateInitialState(OFFICE_CONF, OFFICE_WEIGHTS)
+    floor.genFloorState(OFFICE_CONF, OFFICE_WEIGHTS)
+    print('initial floor state')
+    print([n.getNumber() for n in floor.offices])
     hm = HeatMiser(floor)
     hm.generateInitialState()
 
@@ -301,10 +362,19 @@ def DFSTrial():
     done = False
     totalEdgeSums = []
     totalNumVisits = []
+    i = 0
     while not done:
+        print('{}'.format(hm.position))
         # get to the worst-offender office
+        print('\n\nabout to call BFS Navigate')
+        print([n.getNumber() for n in floor.offices])
+        print('called BFS Navigate')
         path = hm.BFSNavigate()
-
+        print('post-BFS Navigate')
+        print([n.getNumber() for n in floor.offices])
+        #if (i == 11):
+        #    return
+        #i += 1
         # for analytics
         edgeSum = accumulatePathValues(path)
         numVisits = len(path)
@@ -312,7 +382,7 @@ def DFSTrial():
         totalEdgeSums.append(edgeSum)
         totalNumVisits.append(numVisits)
 
-        print('{}/{}, {}/{}, {}/{}, {},{}'.format(avgTemp, TEMP_IDEAL,
+        print('{}/{}, {}/{}, {}/{}, {}/{}'.format(avgTemp, TEMP_IDEAL,
                                                   avgHum, HUM_IDEAL,
                                                   tempSD, TEMP_IDEAL_SD,
                                                   humSD, HUM_IDEAL_SD))
@@ -324,7 +394,12 @@ def DFSTrial():
         SDTempCond = tempSD <= TEMP_IDEAL_SD
         SDHumCond = humSD <= HUM_IDEAL_SD
         if avgTempCond and avgHumCond and SDTempCond and SDHumCond:
-            done = true
+            done = True
+    # print(statistics.mean(totalEdgeSums))
+    # print(statistics.mean(totalNumVisits))
+    # print(sum(totalEdgeSums))
+    # print(sum(totalNumVisits))
+    return totalEdgeSums, totalNumVisits
 
 
 
@@ -337,7 +412,15 @@ def accumulatePathValues(path):
 
 
 def main():
-    DFSTrial()
+    avgEdgeSums = []
+    avgNumVisits = []
+    for i in range(100):
+        # print(i)
+        es, nv = BFSTrial()
+        avgEdgeSums.append(es)
+        avgNumVisits.append(nv)
+    print(statistics.mean(avgEdgeSums))
+    print(statistics.mean(avgNumVisits))
 
 
     pass
