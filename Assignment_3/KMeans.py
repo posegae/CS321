@@ -14,13 +14,14 @@ class KMC:
     ''' KMC = K Means Clustering
         Contains the cluster objects'''
 
-    def __init__(self, k, idFeature, features, allData):
+    def __init__(self, k, idFeature, features, allData, labelFeature):
         self.k = k
         self.allData = allData
         self.clusters = [Cluster(idFeature, features, allData) for i in range(k)]
         self.idFeature = idFeature
+        self.labelFeature = labelFeature
 
-    def fit(self):
+    def fit(self, labelCandidates):
         '''fits a clustering model based on the data
             trainingData is a numpy array'''
         # each cluster gets an initial row randomly
@@ -57,6 +58,7 @@ class KMC:
                 curCluster = self.findCurCluster(row)
                 if closestCluster != curCluster:
                     closestCluster.add(row)
+                    np.delete(curCluster, row)
                     numChanged += 1
             # after moving everything, recalculate Means
             for cluster in self.clusters:
@@ -64,6 +66,37 @@ class KMC:
             print('moved {} rows'.format(numChanged))
             if numRuns > 10:
                 break
+
+        print('now assigning clusters their labels')
+        # Now that we have all our data points in a cluster, assign a label to
+        #  each of them
+        #  e. g. one cluster is compliant, another safe, and another NonCompliant
+        for labelCandidate in labelCandidates:
+            self.assignClusterLabel(labelCandidate)
+
+
+    def assignClusterLabel(self, candidate):
+        '''
+        candidate: a string that matches with a class in the feature that you
+                    want to predict on (Safe, NonCompliant, Compliant)
+        checks percentage membership of the given candidate in each of the
+            clusters. Assign the one with the largest proportion the candidate
+        '''
+        unlabeledClusters = [c for c in self.clusters if c.label == '']
+
+        clusterRows = []
+        for cluster in unlabeledClusters:
+            clusterRows.append(cluster.getRowsAsNumpy())
+        clusterCandidateCounts = []
+        for cr in clusterRows:
+            clusterCandidateCounts.append(sum([1 if x[self.labelFeature] == candidate else 0 for x in cr  ]))
+        candidatePercentages = []
+        for i in range(len(clusterCandidateCounts)):
+            candidatePercentage = clusterCandidateCounts[i] / len(unlabeledClusters[i].rows)
+            candidatePercentages.append(candidatePercentage)
+        bestClusterIdx = candidatePercentages.index(max(candidatePercentages))
+        unlabeledClusters[bestClusterIdx].label = candidate
+
 
 
 
@@ -80,7 +113,22 @@ class KMC:
             if row[self.idFeature] in cluster.rows:
                 return cluster
 
+    def test(self, testSet):
+        numRight = 0
+        numWrong = 0
 
+        for row in testSet:
+            predictedCluster = self.findClosestCluster(row)
+            if row[self.labelFeature] == predictedCluster.label:
+                numRight += 1
+            else:
+                print(row[self.labelFeature])
+                print(predictedCluster.label)
+                numWrong += 1
+        print('Number right: {}'.format(numRight))
+        print('Number wrong: {}'.format(numWrong))
+        print('\% right: {}'.format(numRight / len(testSet)))
+        print('\% wrong: {}'.format(numWrong / len(testSet)))
 
 
 class Cluster:
@@ -99,6 +147,7 @@ class Cluster:
         self.allData = allData
         self.features = features
         self.dimension = len(features)
+        self.label = ''
 
     def add(self, row):
         ''' adds the passed in row's id into the rows list '''
@@ -130,6 +179,11 @@ class Cluster:
         valDifferences = math.sqrt(sum(list(map(lambda x: (x[1] - x[0]) ** 2, zip(rowValues, self.mean)))))
         return valDifferences
 
+    def getRowsAsNumpy(self):
+        ''' returns the filtered training data set that corresponds to the rows
+            that this cluster contains '''
+        return self.allData[[(x[self.idFeature] in self.rows) for x in self.allData]]
+
 
 
 
@@ -151,11 +205,13 @@ def main():
     trainSet = data[:trainSize]
     testSet = data[trainSize:]
 
-    c = KMC(3, 'HeatMiser_ID', ['Distance_Feature', 'Speeding_Feature'], trainSet)
-    c.fit()
+    c = KMC(3, 'HeatMiser_ID', ['Distance_Feature', 'Speeding_Feature'], trainSet, 'OSHA')
+    c.fit(['Compliant', 'NonCompliant', 'Safe'])
+    c.test(testSet)
     for cluster in c.clusters:
         print(len(cluster.rows))
         print(cluster.mean)
+        print(cluster.label)
 
 
 if __name__ == '__main__':
