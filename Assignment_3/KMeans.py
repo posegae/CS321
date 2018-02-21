@@ -45,7 +45,7 @@ class KMC:
             closestCluster.add(row)
             closestCluster.updateMean()
             used.append(row)
-            print('{}/{}'.format(len(used), len(self.allData)))
+#             print('{}/{}'.format(len(used), len(self.allData)))
 
         # check passes: check that each row is in the closest cluster
         numChanged = -1
@@ -58,7 +58,8 @@ class KMC:
                 curCluster = self.findCurCluster(row)
                 if closestCluster != curCluster:
                     closestCluster.add(row)
-                    np.delete(curCluster, row)
+#                     np.delete(curCluster, row)
+                    curCluster.remove(row)
                     numChanged += 1
             # after moving everything, recalculate Means
             for cluster in self.clusters:
@@ -114,21 +115,86 @@ class KMC:
                 return cluster
 
     def test(self, testSet):
-        numRight = 0
-        numWrong = 0
+        safeTruePositive = 0
+        safeFalsePositive = 0
+        safeTrueNegative = 0
+        safeFalseNegative = 0
+        compliantTruePositive = 0
+        compliantFalsePositive = 0
+        compliantTrueNegative = 0
+        compliantFalseNegative = 0
+        noncompliantTruePositive = 0
+        noncompliantFalsePositive = 0
+        noncompliantTrueNegative = 0
+        noncompliantFalseNegative = 0
 
         for row in testSet:
             predictedCluster = self.findClosestCluster(row)
-            if row[self.labelFeature] == predictedCluster.label:
-                numRight += 1
+            if predictedCluster.label == row[self.labelFeature]:
+                # these are true positives and true negatives
+                if predictedCluster.label == 'Safe':
+                    safeTruePositive += 1
+                    compliantTrueNegative += 1
+                    noncompliantTrueNegative += 1
+                elif predictedCluster.label == 'Compliant':
+                    safeTrueNegative += 1
+                    compliantTruePositive += 1
+                    noncompliantTrueNegative += 1
+                elif predictedCluster.label == 'NonCompliant':
+                    safeTrueNegative += 1
+                    compliantTrueNegative += 1
+                    noncompliantTruePositive += 1
+                else:
+                    # this shouldn't happen
+                    print('unexpected label in test')
+                    exit(0)
             else:
-                print(row[self.labelFeature])
-                print(predictedCluster.label)
-                numWrong += 1
-        print('Number right: {}'.format(numRight))
-        print('Number wrong: {}'.format(numWrong))
-        print('\% right: {}'.format(numRight / len(testSet)))
-        print('\% wrong: {}'.format(numWrong / len(testSet)))
+                # these are false positives and false negatives
+                p = predictedCluster.label # predicted
+                a = row[self.labelFeature] # actual
+                if p == 'Safe' and a == 'Compliant':
+                    safeFalsePositive += 1
+                    compliantFalseNegative += 1
+                elif p == 'Safe' and a == 'NonCompliant':
+                    safeFalsePositive += 1
+                    noncompliantFalseNegative += 1
+                elif p == 'Compliant' and a == 'Safe':
+                    compliantFalsePositive += 1
+                    safeFalseNegative += 1
+                elif p == 'Compliant' and a == 'NonCompliant':
+                    compliantFalsePositive += 1
+                    noncompliantFalseNegative += 1
+                elif p == 'NonCompliant' and a == 'Safe':
+                    noncompliantFalsePositive += 1
+                    safeFalseNegative += 1
+                elif p == 'NonCompliant' and a == 'Compliant':
+                    noncompliantFalsePositive += 1
+                    compliantFalseNegative += 1
+                else:
+                    print('unexpected label combinations in test')
+                    print(p)
+                    print(a)
+
+                          
+        safePrecision = safeTruePositive / (safeTruePositive + safeFalsePositive)
+        safeRecall = safeTruePositive / (safeTruePositive + safeFalseNegative)
+        safeF1 = 2 * ((safePrecision * safeRecall) / (safePrecision + safeRecall))
+        compliantPrecision = compliantTruePositive / (compliantTruePositive + compliantFalsePositive)
+        compliantRecall = compliantTruePositive / (compliantTruePositive + compliantFalseNegative)
+        compliantF1 = 2 * ((compliantPrecision * compliantRecall) / (compliantPrecision + compliantRecall))
+        noncompliantPrecision = noncompliantTruePositive / (noncompliantTruePositive + noncompliantFalsePositive)
+        noncompliantRecall = noncompliantTruePositive / (noncompliantTruePositive + noncompliantFalseNegative)
+        noncompliantF1 = 2 * ((noncompliantPrecision * noncompliantRecall) / (noncompliantPrecision + noncompliantRecall))
+        
+        print('metrics are (precision, recall, f1)')
+        print('Safe: {}, {}, {}'.format(safePrecision, safeRecall, safeF1))
+        print('Compliant: {}, {}, {}'.format(compliantPrecision, compliantRecall, compliantF1))
+        print('NonCompliant: {}, {}, {}'.format(noncompliantPrecision, noncompliantRecall, noncompliantF1))
+        
+                
+
+        
+
 
 
 class Cluster:
