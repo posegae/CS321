@@ -12,6 +12,7 @@ import random
 from multiprocessing import pool
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
+import os
 
 class KMC:
     ''' KMC = K Means Clustering
@@ -36,10 +37,7 @@ class KMC:
             used.append(toAdd)
             cluster.add(toAdd)
             cluster.updateMean()
-            # print([len(x.rows) for x in self.clusters])
-            # print(cluster.rows)
 
-        ## serial version
         # initial pass: put each row into the closest cluster
         for row in self.allData:
             if row in used:
@@ -49,8 +47,6 @@ class KMC:
             closestCluster.add(row)
             closestCluster.updateMean()
             used.append(row)
-#             print('{}/{}'.format(len(used), len(self.allData)))
-        ## end serial version
 
         # check passes: check that each row is in the closest cluster
         numChanged = -1
@@ -65,17 +61,14 @@ class KMC:
                 curCluster = self.findCurCluster(row)
                 if closestCluster != curCluster:
                     closestCluster.add(row)
-#                     np.delete(curCluster, row)
                     curCluster.remove(row)
                     numChanged += 1
             # after moving everything, recalculate Means
             for cluster in self.clusters:
                 cluster.updateMean()
-            # print('moved {} rows'.format(numChanged))
             if numRuns > 10:
                 break
 
-        # print('now assigning clusters their labels')
         # Now that we have all our data points in a cluster, assign a label to
         #  each of them
         #  e. g. one cluster is compliant, another safe, and another NonCompliant
@@ -261,13 +254,15 @@ class Cluster:
 
 
 def main():
+    if not os.path.exists('KMeansGraphs'):
+        os.makedirs('KMeansGraphs')
+
     dt = np.dtype([('HeatMiser_ID', np.unicode_, 16), ('Distance_Feature', np.float), ('Speeding_Feature', np.int_),
                    ('Location', np.unicode_, 16), ('OSHA', np.unicode_, 16)])
     data = np.loadtxt('HW3_Data.txt', dtype=dt, delimiter='\t', skiprows=1)
     # shuffle the data before performing 10-fold cross validation once
     np.random.shuffle(data)
     testStart = 0
-    # testSize = 3500
     testSize = 400
 
     # perform 10 fold cross validation
@@ -295,8 +290,8 @@ def main():
             plt.scatter(speeds, distances, c=color)
 
         plt.title('Predicted OSHA labels, fold {}'.format(i + 1))
-        plt.xlabel('Distance Feature')
-        plt.ylabel('Speeding Feature')
+        plt.ylabel('Distance Feature')
+        plt.xlabel('Speeding Feature')
         plt.savefig('KMeansGraphs/KMeanClusters{}.jpg'.format(i + 1))
 
 
@@ -320,11 +315,9 @@ def main():
             plt.scatter(speeds, distances, c=colors[i], label=labelsNames[i])
             i += 1
 
-            # plt.scatter(trainSetSpeeds, trainSetDistances)
-            # plt.legend()
             plt.title('OSHA Classification by Speed and Distance Features')
-            plt.xlabel('Distance Feature')
-            plt.ylabel('Speeding Feature')
+            plt.ylabel('Distance Feature')
+            plt.xlabel('Speeding Feature')
             plt.savefig('KMeansGraphs/overallDataDistribution.jpg')
 
 
