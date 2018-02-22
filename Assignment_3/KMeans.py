@@ -9,6 +9,7 @@ Implements K Means Clustering
 import numpy as np
 import math
 import random
+from multiprocessing import pool
 
 class KMC:
     ''' KMC = K Means Clustering
@@ -36,6 +37,7 @@ class KMC:
             # print([len(x.rows) for x in self.clusters])
             # print(cluster.rows)
 
+        ## serial version
         # initial pass: put each row into the closest cluster
         for row in self.allData:
             if row in used:
@@ -46,6 +48,7 @@ class KMC:
             closestCluster.updateMean()
             used.append(row)
 #             print('{}/{}'.format(len(used), len(self.allData)))
+        ## end serial version
 
         # check passes: check that each row is in the closest cluster
         numChanged = -1
@@ -53,6 +56,8 @@ class KMC:
         while numChanged != 0:
             numChanged = 0
             numRuns += 1
+            
+            
             for row in self.allData:
                 closestCluster = self.findClosestCluster(row)
                 curCluster = self.findCurCluster(row)
