@@ -10,6 +10,8 @@ import numpy as np
 import math
 import random
 from multiprocessing import pool
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 class KMC:
     ''' KMC = K Means Clustering
@@ -56,8 +58,8 @@ class KMC:
         while numChanged != 0:
             numChanged = 0
             numRuns += 1
-            
-            
+
+
             for row in self.allData:
                 closestCluster = self.findClosestCluster(row)
                 curCluster = self.findCurCluster(row)
@@ -69,11 +71,11 @@ class KMC:
             # after moving everything, recalculate Means
             for cluster in self.clusters:
                 cluster.updateMean()
-            print('moved {} rows'.format(numChanged))
+            # print('moved {} rows'.format(numChanged))
             if numRuns > 10:
                 break
 
-        print('now assigning clusters their labels')
+        # print('now assigning clusters their labels')
         # Now that we have all our data points in a cluster, assign a label to
         #  each of them
         #  e. g. one cluster is compliant, another safe, and another NonCompliant
@@ -180,7 +182,7 @@ class KMC:
                     print(p)
                     print(a)
 
-                          
+
         safePrecision = safeTruePositive / (safeTruePositive + safeFalsePositive)
         safeRecall = safeTruePositive / (safeTruePositive + safeFalseNegative)
         safeF1 = 2 * ((safePrecision * safeRecall) / (safePrecision + safeRecall))
@@ -190,15 +192,15 @@ class KMC:
         noncompliantPrecision = noncompliantTruePositive / (noncompliantTruePositive + noncompliantFalsePositive)
         noncompliantRecall = noncompliantTruePositive / (noncompliantTruePositive + noncompliantFalseNegative)
         noncompliantF1 = 2 * ((noncompliantPrecision * noncompliantRecall) / (noncompliantPrecision + noncompliantRecall))
-        
+
         print('metrics are (precision, recall, f1)')
         print('Safe: {}, {}, {}'.format(safePrecision, safeRecall, safeF1))
         print('Compliant: {}, {}, {}'.format(compliantPrecision, compliantRecall, compliantF1))
         print('NonCompliant: {}, {}, {}'.format(noncompliantPrecision, noncompliantRecall, noncompliantF1))
-        
-                
 
-        
+
+
+
 
 
 
@@ -259,31 +261,74 @@ class Cluster:
 
 
 def main():
-    # 3436 safe   .859
-    # 415 Compliant .10395
-    # 149 NonCompliant .03725
-
-    # data is a numpy array
-    # data[1] accesses the second row
-    # data[1]['HeatMiser_ID'] accesses the second row's id.
-    dt = np.dtype([('HeatMiser_ID', np.unicode_, 16), ('Distance_Feature', np.float), ('Speeding_Feature', np.int_), ('Location', np.unicode_, 16), ('OSHA', np.unicode_, 16)])
+    dt = np.dtype([('HeatMiser_ID', np.unicode_, 16), ('Distance_Feature', np.float), ('Speeding_Feature', np.int_),
+                   ('Location', np.unicode_, 16), ('OSHA', np.unicode_, 16)])
     data = np.loadtxt('HW3_Data.txt', dtype=dt, delimiter='\t', skiprows=1)
+    # shuffle the data before performing 10-fold cross validation once
+    np.random.shuffle(data)
+    testStart = 0
+    # testSize = 3500
+    testSize = 400
+
+    # perform 10 fold cross validation
+    for i in range(10):
+        testSet = data[testStart:testStart+testSize]
+        trainSet = data[0:testStart]
+        trainSet= np.concatenate((trainSet, data[testStart+testSize:]))
+
+        c = KMC(3, 'HeatMiser_ID', ['Distance_Feature', 'Speeding_Feature'], trainSet, 'OSHA')
+        c.fit(['Compliant', 'NonCompliant', 'Safe'])
+        c.test(testSet)
+
+        testStart += testSize
+
+        for cluster in c.clusters:
+            clusterRows = cluster.getRowsAsNumpy()
+            speeds = [x['Speeding_Feature'] for x in clusterRows]
+            distances = [x['Distance_Feature'] for x in clusterRows]
+            if cluster.label == 'Safe':
+                color = 'g'
+            elif cluster.label == 'Compliant':
+                color = 'y'
+            elif cluster.label == 'NonCompliant':
+                color = 'r'
+            plt.scatter(speeds, distances, c=color)
+
+        plt.title('Predicted OSHA labels, fold {}'.format(i + 1))
+        plt.xlabel('Distance Feature')
+        plt.ylabel('Speeding Feature')
+        plt.savefig('KMeansGraphs/KMeanClusters{}.jpg'.format(i + 1))
 
 
-    trainRatio = .7
-    trainSize = math.floor(data.shape[0] * trainRatio)
-    # trainSize = 500
-    trainSet = data[:trainSize]
-    testSet = data[trainSize:]
+        '''plotting the distribution of Compliant, NonCompliant, and Safe data points across the features that
+    we arere using to train KMeans '''
+        dt = np.dtype([('HeatMiser_ID', np.unicode_, 16), ('Distance_Feature', np.float), ('Speeding_Feature', np.int_), ('Location', np.unicode_, 16), ('OSHA', np.unicode_, 16)])
+        data = np.loadtxt('HW3_Data.txt', dtype=dt, delimiter='\t', skiprows=1)
+        trainSet = data
+        compliant = [c for c in trainSet if c['OSHA'] == 'Compliant']
+        noncompliant = [c for c in trainSet if c['OSHA'] == 'NonCompliant']
+        safe = [c for c in trainSet if c['OSHA'] == 'Safe']
 
-    c = KMC(3, 'HeatMiser_ID', ['Distance_Feature', 'Speeding_Feature'], trainSet, 'OSHA')
-    c.fit(['Compliant', 'NonCompliant', 'Safe'])
-    c.test(testSet)
-    for cluster in c.clusters:
-        print(len(cluster.rows))
-        print(cluster.mean)
-        print(cluster.label)
+        labels = [compliant, noncompliant, safe]
 
+        colors = ['y' , 'r', 'g']
+        labelsNames = ['Compliant', 'NonCompliant', 'Safe']
+        i = 0
+        for cluster in labels:
+            speeds = [x['Speeding_Feature'] for x in cluster]
+            distances = [x['Distance_Feature'] for x in cluster]
+            plt.scatter(speeds, distances, c=colors[i], label=labelsNames[i])
+            i += 1
+
+            # plt.scatter(trainSetSpeeds, trainSetDistances)
+            # plt.legend()
+            plt.title('OSHA Classification by Speed and Distance Features')
+            plt.xlabel('Distance Feature')
+            plt.ylabel('Speeding Feature')
+            plt.savefig('KMeansGraphs/overallDataDistribution.jpg')
+
+
+# TODO: Print visualization with every fold
 
 if __name__ == '__main__':
     main()
