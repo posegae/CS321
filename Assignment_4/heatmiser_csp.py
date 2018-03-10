@@ -109,11 +109,16 @@ class Location:
             return False
 
 
-def brute_force(location_names):
+def brute_force():
+    location_names = ['w1', 'w2', 'w3', 'w4', 'o1', 'o2', 'o3', 'o4', 'o5', 'o6']
     solutions = []
     floor = Floor(location_names)
     action_encoding = [0] * 10
     floor.set_values(action_encoding)
+
+    # for performance metric
+    t0 = time.time()
+
     if floor.check_constraints():
         solutions.append(floor)
 #         return floor
@@ -125,11 +130,14 @@ def brute_force(location_names):
         floor.set_values(action_encoding)
         if floor.check_constraints():
             solutions.append(floor)
-            print(count)
-#             return floor
+            print('Brute force: solution found at count {}'.format(count))
         if sum(action_encoding) == 20:
             break
-    print('checked {} possibilities'.format(count))
+
+    t1 = time.time()
+    total_time = t1 - t0
+    print('Brute force: checked {} possibilities'.format(count))
+    print('Brute force: took {} seconds'.format(total_time))
     return solutions
 
 def ternery_increment(ternery_arr):
@@ -154,12 +162,12 @@ def ternery_increment(ternery_arr):
 def minimum_conflicts():
     location_names = ['w1', 'w2', 'w3', 'w4', 'o1', 'o2', 'o3', 'o4', 'o5', 'o6']
     floor = Floor(location_names)
+
+    # for performance metrics
     count = 0
-    print(floor)
+    t0 = time.time()
     while True:
         for loc in floor.locations:
-
-            time.sleep(0.2)
             count += 1
             adjacent_encodings = [l.encoding for l in loc.adjacent_locs]
             temp_cons_num = len([e for e in adjacent_encodings if e == 0])
@@ -179,22 +187,41 @@ def minimum_conflicts():
 
             if action == loc.encoding:
                 if encoding_counts[loc.encoding] != 0:
-                    encoding_counts[loc.encoding] = 999
+                    encoding_counts[loc.encoding] = 999 # :P
                     action = encoding_counts.index(min(encoding_counts))
 
             loc.encoding = action
-            print(floor)
             if loc.encoding > 2:
                 print('Error: somehow there are more than 3 elements in the encoding_counts list')
             if floor.check_constraints():
-#                 print('{} (re)assignments'.format(count))
-                return floor, count
-#             print(floor)
+                t1 = time.time()
+                total_time = t1 - t0
+                return floor, count, total_time
 
-# avg = 0
-# for i in range(10000):
-#     avg += minimum_conflicts()[1]
-# print(avg / 10000)
-print('\n\n\n\n\n\n\n\n\n\n')
-time.sleep(1)
-minimum_conflicts()
+
+
+def main():
+    print('Running brute force . . .')
+    answers = brute_force()
+
+    print('Brute force answers:')
+    for answer in answers:
+        print(answer)
+
+    print('\n\n')
+
+
+    print('Running minimum conflicts optimized . . .')
+    avg_count = 0
+    avg_time = 0
+    for i in range(10000):
+        aMinConflict = minimum_conflicts()
+        avg_count += aMinConflict[1]
+        avg_time += aMinConflict[2]
+    print('Answer from last minimum conflict run:')
+    print(aMinConflict[0])
+    print('Average number of location-action assignments: {}'.format(avg_count / 10000))
+    print('Average time to find solution: {}'.format(avg_time / 10000))
+
+if __name__ == '__main__':
+    main()
